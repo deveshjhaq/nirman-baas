@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nirman-sdk"
+version = "0.1.0"
+description = "Official Python SDK for Nirman BaaS"
+readme = "README.md"
+authors = [
+    { name = "Nirman Team", email = "hello@nirman.dev" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.24.0"
+]

@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Nginx Reverse Proxy
+  # ==========================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - gateway
+      - realtime
+    restart: unless-stopped
+
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: nirman
+      POSTGRES_PASSWORD: nirmanpassword
+      POSTGRES_DB: nirman_baas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nirman -d nirman_baas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Redis Cache & Message Broker
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # API Gateway (Go/Chi)
+  # ==========================================
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_URL=postgres://nirman:nirmanpassword@postgres:5432/nirman_baas?sslmode=disable
+      - REDIS_URL=redis:6379
+      - JWT_SECRET=nirman-super-secret-jwt-key
+      - HUB_URL=http://hub:3000
+      - PORT=8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==========================================
+  # Realtime Server (Go/WebSocket)
+  # ==========================================
+  realtime:
+    build:
+      context: ./realtime
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis:6379
+      - DB_URL=postgres://nirman:nirmanpassword@postgres:5432/nirman_baas?sslmode=disable
+      - JWT_SECRET=nirman-super-secret-jwt-key
+      - PORT=8000
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==========================================
+  # Integrations Hub (Bun/Hono)
+  # ==========================================
+  hub:
+    build:
+      context: ./hub
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_URL=postgres://nirman:nirmanpassword@postgres:5432/nirman_baas?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==========================================
+  # Background Workers (Python/Celery)
+  # ==========================================
+  workers:
+    build:
+      context: ./workers
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_URL=postgresql://nirman:nirmanpassword@postgres:5432/nirman_baas
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==========================================
+  # Admin Dashboard (Next.js 15)
+  # ==========================================
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
