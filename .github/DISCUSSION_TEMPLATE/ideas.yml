@@ -1,0 +1,51 @@
+title: "[Idea] "
+labels:
+  - idea
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your idea for improving Nirman.
+
+        Try to explain the problem first, then your proposed solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve?
+      placeholder: The current workflow is...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: What do you suggest?
+      placeholder: I propose that Nirman should...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives did you evaluate?
+      placeholder: Alternative A, B, C...
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected Area
+      options:
+        - Gateway
+        - Hub
+        - Realtime
+        - Workers
+        - Dashboard
+        - SDK
+        - Docs
+        - Infrastructure
+    validations:
+      required: true

@@ -1,0 +1,33 @@
+title: "[Discussion] "
+labels:
+  - discussion
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for starting a discussion in Nirman.
+
+        Please keep context clear so maintainers and contributors can help quickly.
+
+  - type: textarea
+    id: topic
+    attributes:
+      label: Topic
+      description: What do you want to discuss?
+      placeholder: Describe your topic...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Share project context, service area, or links.
+      placeholder: Relevant files, services, links, or prior issues...
+
+  - type: textarea
+    id: expected-outcome
+    attributes:
+      label: Expected Outcome
+      description: What kind of answer or decision are you looking for?
+      placeholder: Clarification, design feedback, implementation approach, etc.

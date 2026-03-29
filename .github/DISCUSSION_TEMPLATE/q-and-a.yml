@@ -1,0 +1,50 @@
+title: "[Q&A] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask your question about Nirman.
+
+        Please include enough context so others can help quickly.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need help with?
+      placeholder: I am trying to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What You Tried
+      description: Explain what you already tried.
+      placeholder: I tried these steps...
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Related Service
+      options:
+        - Gateway
+        - Hub
+        - Realtime
+        - Workers
+        - Dashboard
+        - SDK
+        - Docs
+        - Infrastructure
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Add versions and setup details if relevant.
+      placeholder: OS, Docker, Node, Bun, Go, Python versions...

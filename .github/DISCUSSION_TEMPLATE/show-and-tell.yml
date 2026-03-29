@@ -1,0 +1,48 @@
+title: "[Show and Tell] "
+labels:
+  - showcase
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Show what you built with Nirman.
+
+        Share architecture, screenshots, and lessons learned.
+
+  - type: input
+    id: project-name
+    attributes:
+      label: Project Name
+      placeholder: My Awesome App
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What did you build?
+      placeholder: We built...
+    validations:
+      required: true
+
+  - type: textarea
+    id: nirman-usage
+    attributes:
+      label: How Nirman Was Used
+      description: Which services/features did you use?
+      placeholder: Gateway auth, Hub email, Realtime channels, Workers tasks...
+
+  - type: textarea
+    id: challenges
+    attributes:
+      label: Challenges and Learnings
+      description: What worked well and what was difficult?
+      placeholder: Biggest challenge was...
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links / Screenshots
+      description: Share repository links, demos, screenshots, or recordings.
+      placeholder: https://...
