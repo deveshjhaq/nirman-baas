@@ -1,0 +1,11 @@
+# Global default owners
+* @deveshjhaq
+
+# Service-specific ownership
+gateway/ @deveshjhaq
+hub/ @deveshjhaq
+realtime/ @deveshjhaq
+workers/ @deveshjhaq
+dashboard/ @deveshjhaq
+sdk/ @deveshjhaq
+infra/ @deveshjhaq
