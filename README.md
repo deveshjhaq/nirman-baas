@@ -6,6 +6,15 @@
 
 Nirman is a high-performance, polyglot microservices platform built for modern development. Need to switch from Twilio to MSG91 or from SendGrid to Resend? Do it instantly from the Dashboard without touching a single line of application code.
 
+## Languages
+
+- English: [README.md](README.md)
+- Hindi: [README.hi.md](README.hi.md)
+- Spanish: [README.es.md](README.es.md)
+- Chinese (Simplified): [README.zh-CN.md](README.zh-CN.md)
+- Arabic: [README.ar.md](README.ar.md)
+- French: [README.fr.md](README.fr.md)
+
 ## 🌟 Architecture & Tech Stack
 
 Nirman follows a polyglot microservices architecture where each service is optimized for its job.
