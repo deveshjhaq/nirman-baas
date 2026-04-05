@@ -1,34 +1,58 @@
-import type { IntegrationProvider } from '../../registry/providers';
+import { BaseProvider } from '@nirman/provider-sdk';
+import type { ProviderResult, CredentialField, ProviderAction } from '@nirman/provider-sdk';
 
-export const OneSignalProvider: IntegrationProvider = {
-  name: 'onesignal',
-  category: 'notifications',
+export default class OneSignalProvider extends BaseProvider {
+  readonly name = 'onesignal';
+  readonly category = 'notifications' as const;
+  readonly version = '1.0.0';
 
-  async execute(action: string, params: Record<string, any>, credentials: Record<string, any>) {
-    const { app_id, rest_api_key } = credentials;
-    if (!app_id || !rest_api_key) throw new Error('OneSignal credentials not configured');
+  readonly credentialSchema: CredentialField[] = [
+    { key: 'app_id',      label: 'OneSignal App ID',   type: 'string', required: true },
+    { key: 'rest_api_key',label: 'REST API Key',        type: 'secret', required: true },
+  ];
+
+  readonly actions: ProviderAction[] = [
+    {
+      name: 'send',
+      description: 'Send push notification via OneSignal',
+      params: {
+        player_ids:         { type: 'array',  required: false, description: 'List of player IDs' },
+        external_user_ids:  { type: 'array',  required: false, description: 'External user IDs' },
+        title:              { type: 'string', required: true },
+        body:               { type: 'string', required: true },
+        data:               { type: 'object', required: false, description: 'Custom data payload' },
+      },
+    },
+  ];
+
+  protected async handle(
+    action: string,
+    params: Record<string, unknown>,
+    credentials: Record<string, unknown>
+  ): Promise<ProviderResult> {
+    const appId      = credentials['app_id']       as string;
+    const restApiKey = credentials['rest_api_key'] as string;
 
     if (action === 'send') {
       const resp = await fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${rest_api_key}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Basic ${restApiKey}` },
         body: JSON.stringify({
           app_id,
-          include_player_ids: params.player_ids || [],
+          include_player_ids:        params.player_ids || [],
           include_external_user_ids: params.external_user_ids || [],
-          headings: { en: params.title || 'Notification' },
-          contents: { en: params.body || '' },
-          data: params.data || {},
+          headings:  { en: params.title || 'Notification' },
+          contents:  { en: params.body  || '' },
+          data:      params.data || {},
         }),
       });
 
-      const data = await resp.json();
-      return { success: !data.errors, id: data.id, recipients: data.recipients };
+      const data = await resp.json() as any;
+      if (data.errors?.length) throw new Error(`OneSignal: ${JSON.stringify(data.errors)}`);
+
+      return { success: true, provider: this.name, action, data: { id: data.id, recipients: data.recipients } };
     }
 
-    throw new Error(`Unknown action: ${action}`);
-  },
-};
+    throw new Error(`Unsupported action: ${action}`);
+  }
+}

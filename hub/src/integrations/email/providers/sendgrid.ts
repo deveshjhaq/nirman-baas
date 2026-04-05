@@ -1,53 +1,64 @@
-import { EmailProvider } from '../interface.ts';
+import { BaseProvider } from '@nirman/provider-sdk';
+import type { ProviderResult, CredentialField, ProviderAction } from '@nirman/provider-sdk';
 
-export default class SendGridProvider implements EmailProvider {
-  private apiKey: string;
-  private fromEmail: string;
+export default class SendGridProvider extends BaseProvider {
+  readonly name = 'sendgrid';
+  readonly category = 'email' as const;
+  readonly version = '1.0.0';
 
-  constructor(credentials: any, config: any) {
-    this.apiKey = credentials.api_key;
-    this.fromEmail = config.from_email || credentials.from_email;
+  readonly credentialSchema: CredentialField[] = [
+    { key: 'api_key',    label: 'API Key',     type: 'secret', required: true, placeholder: 'SG.xxxxxxx' },
+    { key: 'from_email', label: 'From Email',  type: 'string', required: true, placeholder: 'no-reply@example.com' },
+    { key: 'from_name',  label: 'From Name',   type: 'string', required: false, default: 'Nirman' },
+  ];
 
-    if (!this.apiKey || !this.fromEmail) {
-      throw new Error("SendGrid credentials missing. Requires 'api_key' and 'from_email'.");
-    }
-  }
-
-  async sendEmail(to: string, subject: string, html: string, text?: string): Promise<any> {
-    const payload = {
-      personalizations: [
-        {
-          to: [{ email: to }],
-          subject: subject
-        }
-      ],
-      from: { email: this.fromEmail },
-      content: [
-        {
-          type: 'text/plain',
-          value: text || html.replace(/<[^>]*>?/gm, '')
-        },
-        {
-          type: 'text/html',
-          value: html
-        }
-      ]
-    };
-
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json'
+  readonly actions: ProviderAction[] = [
+    {
+      name: 'send',
+      description: 'Send a transactional email via SendGrid',
+      params: {
+        to:      { type: 'string', required: true,  description: 'Recipient email' },
+        subject: { type: 'string', required: true,  description: 'Email subject' },
+        html:    { type: 'string', required: true,  description: 'HTML body' },
+        text:    { type: 'string', required: false, description: 'Plain-text fallback' },
       },
-      body: JSON.stringify(payload)
-    });
+    },
+  ];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SendGrid API Error: ${errorText}`);
+  protected async handle(
+    action: string,
+    params: Record<string, unknown>,
+    credentials: Record<string, unknown>
+  ): Promise<ProviderResult> {
+    const apiKey    = credentials['api_key']    as string;
+    const fromEmail = credentials['from_email'] as string;
+    const fromName  = (credentials['from_name'] as string) || 'Nirman';
+
+    if (action === 'send') {
+      const html = params.html as string;
+      const payload = {
+        personalizations: [{ to: [{ email: params.to }], subject: params.subject }],
+        from: { email: fromEmail, name: fromName },
+        content: [
+          { type: 'text/plain', value: (params.text as string) || html.replace(/<[^>]*>?/gm, '') },
+          { type: 'text/html',  value: html },
+        ],
+      };
+
+      const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`SendGrid: ${err}`);
+      }
+
+      return { success: true, provider: this.name, action, data: { to: params.to, subject: params.subject } };
     }
 
-    return { success: true, provider: 'sendgrid' };
+    throw new Error(`Unsupported action: ${action}`);
   }
 }

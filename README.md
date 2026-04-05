@@ -27,6 +27,8 @@ Nirman follows a polyglot microservices architecture where each service is optim
 | Realtime Layer | Realtime | Go, WebSockets, Redis Pub/Sub | Live updates and project-scoped realtime channels |
 | UI Layer | Dashboard | Next.js, React, TypeScript | Admin panel for projects, keys, integrations |
 | Infra Layer | Infra | Docker Compose, Nginx, PostgreSQL, Redis | Orchestration, reverse proxy, persistence, messaging |
+| Provider System | packages/provider-sdk | TypeScript | Interface contract for all plug-and-play providers |
+| Provider Registry | nirman-registry | JSON (separate repo) | Public listing of community-contributed providers |
 
 ### Core Technologies
 - **Go**: High-performance API and realtime services
@@ -205,6 +207,16 @@ nirman-baas/
 │   ├── package.json
 │   └── index.ts
 │
+├── packages/
+│   └── provider-sdk/                     # [NEW] Interface contract for all providers
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── src/
+│           ├── index.ts                  # Public exports
+│           ├── types.ts                  # Shared provider types & interfaces
+│           └── base/
+│               └── provider.ts           # BaseProvider abstract class
+│
 ├── database/                             # Original SQL init script
 │   └── init.sql
 │
@@ -221,6 +233,8 @@ nirman-baas/
 		├── services/
 		├── specs/
 		└── tutorials/
+
+
 ```
 
 ## 🚀 Getting Started

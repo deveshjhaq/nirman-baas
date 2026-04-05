@@ -1,40 +1,61 @@
-export interface NotificationProvider {
-  sendPush(token: string, title: string, body: string, data?: any): Promise<any>;
-}
+import { BaseProvider } from '@nirman/provider-sdk';
+import type { ProviderResult, CredentialField, ProviderAction } from '@nirman/provider-sdk';
 
-export default class FCMProvider implements NotificationProvider {
-  private serverKey: string;
+export default class FCMProvider extends BaseProvider {
+  readonly name = 'fcm';
+  readonly category = 'notifications' as const;
+  readonly version = '1.0.0';
 
-  constructor(credentials: any, config: any) {
-    this.serverKey = credentials.server_key; // Assuming legacy HTTP API or structured key for v1
-    if (!this.serverKey) {
-      throw new Error("FCM credentials missing. Requires 'server_key'.");
-    }
-  }
+  readonly credentialSchema: CredentialField[] = [
+    { key: 'server_key', label: 'FCM Server Key (Legacy) or Service Account JSON', type: 'secret', required: true },
+    { key: 'project_id', label: 'Firebase Project ID', type: 'string', required: true },
+  ];
 
-  async sendPush(token: string, title: string, body: string, data?: any): Promise<any> {
-    // Note: In a production setting, this should use Firebase Admin SDK or HTTP v1 API
-    // This uses the legacy HTTP API for demonstration simplicity
-    const payload = {
-      to: token,
-      notification: { title, body },
-      data: data || {}
-    };
-
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `key=${this.serverKey}`,
-        'Content-Type': 'application/json'
+  readonly actions: ProviderAction[] = [
+    {
+      name: 'send',
+      description: 'Send a push notification via Firebase Cloud Messaging',
+      params: {
+        device_token: { type: 'string', required: true,  description: 'Target FCM device token' },
+        title:        { type: 'string', required: true,  description: 'Notification title' },
+        body:         { type: 'string', required: true,  description: 'Notification body' },
+        data:         { type: 'object', required: false, description: 'Custom key-value data payload' },
       },
-      body: JSON.stringify(payload)
-    });
+    },
+  ];
 
-    const resData = await response.json();
-    if (!response.ok || resData.failure > 0) {
-      throw new Error(`FCM Error: ${resData.results?.[0]?.error || 'Unknown error'}`);
+  protected async handle(
+    action: string,
+    params: Record<string, unknown>,
+    credentials: Record<string, unknown>
+  ): Promise<ProviderResult> {
+    const serverKey = credentials['server_key'] as string;
+
+    if (action === 'send') {
+      /**
+       * Production: Use Firebase Admin SDK (HTTP v1 API with OAuth2 service account).
+       * Legacy HTTP API used here for simplicity.
+       */
+      const payload = {
+        to: params.device_token,
+        notification: { title: params.title, body: params.body },
+        data: (params.data as object) || {},
+      };
+
+      const resp = await fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: { Authorization: `key=${serverKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await resp.json() as any;
+      if (!resp.ok || data.failure > 0) {
+        throw new Error(`FCM: ${data.results?.[0]?.error || 'Unknown error'}`);
+      }
+
+      return { success: true, provider: this.name, action, data: { message_id: data.results?.[0]?.message_id } };
     }
 
-    return { success: true, provider: 'firebase', response: resData };
+    throw new Error(`Unsupported action: ${action}`);
   }
 }

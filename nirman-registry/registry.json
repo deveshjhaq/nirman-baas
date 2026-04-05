@@ -1,0 +1,303 @@
+{
+  "$schema": "./registry.schema.json",
+  "version": "1.0.0",
+  "updatedAt": "2026-04-04",
+  "providers": [
+    {
+      "name": "twilio",
+      "displayName": "Twilio",
+      "category": "otp",
+      "version": "1.0.0",
+      "description": "Industry-standard SMS and OTP delivery via Twilio Verify API.",
+      "author": "nirman-core",
+      "homepage": "https://www.twilio.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/twilio.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "account_sid",  "label": "Account SID",  "type": "string", "required": true },
+        { "key": "auth_token",   "label": "Auth Token",   "type": "secret", "required": true },
+        { "key": "from_number",  "label": "From Number",  "type": "string", "required": true, "placeholder": "+1234567890" }
+      ],
+      "actions": [
+        { "name": "send",   "description": "Send an OTP via SMS" },
+        { "name": "verify", "description": "Verify an OTP code" }
+      ]
+    },
+    {
+      "name": "msg91",
+      "displayName": "MSG91",
+      "category": "otp",
+      "version": "1.0.0",
+      "description": "Popular Indian SMS/OTP gateway with template support.",
+      "author": "nirman-core",
+      "homepage": "https://msg91.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/msg91.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "auth_key",   "label": "Auth Key",   "type": "secret", "required": true },
+        { "key": "template_id","label": "Template ID","type": "string", "required": false }
+      ],
+      "actions": [
+        { "name": "send",   "description": "Send an OTP via MSG91" },
+        { "name": "verify", "description": "Verify a MSG91 OTP" }
+      ]
+    },
+    {
+      "name": "twofactor",
+      "displayName": "2Factor",
+      "category": "otp",
+      "version": "1.0.0",
+      "description": "Affordable OTP delivery for Indian phone numbers via 2Factor.",
+      "author": "nirman-core",
+      "homepage": "https://2factor.in",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key", "label": "API Key", "type": "secret", "required": true }
+      ],
+      "actions": [
+        { "name": "send",   "description": "Send OTP via 2Factor" },
+        { "name": "verify", "description": "Verify OTP via 2Factor" }
+      ]
+    },
+    {
+      "name": "sendgrid",
+      "displayName": "SendGrid",
+      "category": "email",
+      "version": "1.0.0",
+      "description": "Reliable transactional and marketing email delivery by Twilio SendGrid.",
+      "author": "nirman-core",
+      "homepage": "https://sendgrid.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/sendgrid.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key",     "label": "API Key",         "type": "secret", "required": true },
+        { "key": "from_email",  "label": "From Email",      "type": "string", "required": true },
+        { "key": "from_name",   "label": "From Name",       "type": "string", "required": false }
+      ],
+      "actions": [
+        { "name": "send", "description": "Send a transactional email" }
+      ]
+    },
+    {
+      "name": "resend",
+      "displayName": "Resend",
+      "category": "email",
+      "version": "1.0.0",
+      "description": "Modern email API built for developers. Clean DX, high deliverability.",
+      "author": "nirman-core",
+      "homepage": "https://resend.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/resend.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key",    "label": "API Key",      "type": "secret", "required": true },
+        { "key": "from_email", "label": "From Email",   "type": "string", "required": true }
+      ],
+      "actions": [
+        { "name": "send", "description": "Send an email via Resend API" }
+      ]
+    },
+    {
+      "name": "ses",
+      "displayName": "Amazon SES",
+      "category": "email",
+      "version": "1.0.0",
+      "description": "AWS Simple Email Service — cost-effective, high-volume email sending.",
+      "author": "nirman-core",
+      "homepage": "https://aws.amazon.com/ses",
+      "logoUrl": "https://cdn.nirman.dev/logos/aws-ses.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "access_key",  "label": "AWS Access Key ID",       "type": "string", "required": true },
+        { "key": "secret_key",  "label": "AWS Secret Access Key",   "type": "secret", "required": true },
+        { "key": "region",      "label": "Region",                  "type": "select", "required": false, "default": "us-east-1", "options": ["us-east-1","us-west-2","eu-west-1","ap-south-1"] },
+        { "key": "from_email",  "label": "Verified Sender Email",   "type": "string", "required": true }
+      ],
+      "actions": [
+        { "name": "send", "description": "Send an email via AWS SES" }
+      ]
+    },
+    {
+      "name": "google_maps",
+      "displayName": "Google Maps",
+      "category": "maps",
+      "version": "1.0.0",
+      "description": "Google Maps Platform — geocoding, directions, places, and distance matrix.",
+      "author": "nirman-core",
+      "homepage": "https://developers.google.com/maps",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key", "label": "Google Maps API Key", "type": "secret", "required": true }
+      ],
+      "actions": [
+        { "name": "geocode",   "description": "Convert address to coordinates" },
+        { "name": "directions","description": "Get route between two points" },
+        { "name": "places",    "description": "Search nearby places" }
+      ]
+    },
+    {
+      "name": "mapbox",
+      "displayName": "Mapbox",
+      "category": "maps",
+      "version": "1.0.0",
+      "description": "Mapbox GL JS maps and geocoding API.",
+      "author": "nirman-core",
+      "homepage": "https://mapbox.com",
+      "official": true,
+      "credentialSchema": [
+        { "key": "access_token", "label": "Access Token", "type": "secret", "required": true }
+      ],
+      "actions": [
+        { "name": "geocode",   "description": "Forward geocoding" },
+        { "name": "directions","description": "Get turn-by-turn directions" }
+      ]
+    },
+    {
+      "name": "fcm",
+      "displayName": "Firebase Cloud Messaging",
+      "category": "notifications",
+      "version": "1.0.0",
+      "description": "Google Firebase push notifications for Android and web.",
+      "author": "nirman-core",
+      "homepage": "https://firebase.google.com/docs/cloud-messaging",
+      "logoUrl": "https://cdn.nirman.dev/logos/firebase.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "server_key",  "label": "Server Key (Legacy) or Service Account JSON", "type": "secret", "required": true },
+        { "key": "project_id",  "label": "Firebase Project ID",                         "type": "string", "required": true }
+      ],
+      "actions": [
+        { "name": "send", "description": "Send a push notification to a device or topic" }
+      ]
+    },
+    {
+      "name": "onesignal",
+      "displayName": "OneSignal",
+      "category": "notifications",
+      "version": "1.0.0",
+      "description": "Multi-platform push notifications — iOS, Android, Web.",
+      "author": "nirman-core",
+      "homepage": "https://onesignal.com",
+      "official": true,
+      "credentialSchema": [
+        { "key": "app_id",   "label": "App ID",   "type": "string", "required": true },
+        { "key": "rest_api_key","label": "REST API Key","type": "secret","required": true }
+      ],
+      "actions": [
+        { "name": "send", "description": "Send push notification via OneSignal" }
+      ]
+    },
+    {
+      "name": "razorpay",
+      "displayName": "Razorpay",
+      "category": "payments",
+      "version": "1.0.0",
+      "description": "India's leading payment gateway — UPI, cards, wallets, and more.",
+      "author": "nirman-core",
+      "homepage": "https://razorpay.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/razorpay.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "key_id",     "label": "Key ID",     "type": "string", "required": true },
+        { "key": "key_secret", "label": "Key Secret", "type": "secret", "required": true }
+      ],
+      "actions": [
+        { "name": "create_order", "description": "Create a Razorpay payment order" },
+        { "name": "verify",       "description": "Verify payment signature" }
+      ]
+    },
+    {
+      "name": "stripe",
+      "displayName": "Stripe",
+      "category": "payments",
+      "version": "1.0.0",
+      "description": "Global payment infrastructure — cards, SEPA, wallets, subscriptions.",
+      "author": "nirman-core",
+      "homepage": "https://stripe.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/stripe.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "secret_key",      "label": "Secret Key",       "type": "secret", "required": true, "placeholder": "sk_live_..." },
+        { "key": "webhook_secret",  "label": "Webhook Secret",   "type": "secret", "required": false }
+      ],
+      "actions": [
+        { "name": "create_payment_intent", "description": "Create a PaymentIntent" },
+        { "name": "verify_webhook",        "description": "Verify a Stripe webhook event" }
+      ]
+    },
+    {
+      "name": "openai",
+      "displayName": "OpenAI",
+      "category": "ai",
+      "version": "1.0.0",
+      "description": "GPT-4o, GPT-4-turbo text generation and embeddings via OpenAI API.",
+      "author": "nirman-core",
+      "homepage": "https://platform.openai.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/openai.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key", "label": "OpenAI API Key", "type": "secret", "required": true, "placeholder": "sk-..." }
+      ],
+      "actions": [
+        { "name": "generate", "description": "Generate text using GPT models" },
+        { "name": "embed",    "description": "Generate text embeddings" }
+      ]
+    },
+    {
+      "name": "gemini",
+      "displayName": "Google Gemini",
+      "category": "ai",
+      "version": "1.0.0",
+      "description": "Google Gemini 2.0 Flash text generation and embedding models.",
+      "author": "nirman-core",
+      "homepage": "https://ai.google.dev",
+      "logoUrl": "https://cdn.nirman.dev/logos/gemini.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key", "label": "Google AI API Key", "type": "secret", "required": true, "placeholder": "AIza..." }
+      ],
+      "actions": [
+        { "name": "generate", "description": "Generate text with Gemini models" },
+        { "name": "embed",    "description": "Generate embeddings with text-embedding-004" }
+      ]
+    },
+    {
+      "name": "claude",
+      "displayName": "Anthropic Claude",
+      "category": "ai",
+      "version": "1.0.0",
+      "description": "Claude 3.5 Sonnet and Haiku — safe, capable AI models by Anthropic.",
+      "author": "nirman-core",
+      "homepage": "https://anthropic.com",
+      "logoUrl": "https://cdn.nirman.dev/logos/claude.svg",
+      "official": true,
+      "credentialSchema": [
+        { "key": "api_key", "label": "Anthropic API Key", "type": "secret", "required": true, "placeholder": "sk-ant-..." }
+      ],
+      "actions": [
+        { "name": "generate", "description": "Generate text using Claude models" }
+      ]
+    },
+    {
+      "name": "s3",
+      "displayName": "Amazon S3",
+      "category": "storage",
+      "version": "1.0.0",
+      "description": "AWS S3 compatible object storage — upload, download, signed URLs.",
+      "author": "nirman-core",
+      "homepage": "https://aws.amazon.com/s3",
+      "official": true,
+      "credentialSchema": [
+        { "key": "access_key",   "label": "Access Key ID",     "type": "string", "required": true },
+        { "key": "secret_key",   "label": "Secret Access Key", "type": "secret", "required": true },
+        { "key": "region",       "label": "Region",            "type": "string", "required": true, "default": "us-east-1" },
+        { "key": "bucket",       "label": "Bucket Name",       "type": "string", "required": true }
+      ],
+      "actions": [
+        { "name": "upload",     "description": "Upload a file to S3" },
+        { "name": "download",   "description": "Get a download URL for a file" },
+        { "name": "signed_url", "description": "Generate a pre-signed upload URL" },
+        { "name": "delete",     "description": "Delete a file from S3" }
+      ]
+    }
+  ]
+}

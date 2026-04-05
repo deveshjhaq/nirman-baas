@@ -1,71 +1,76 @@
-import { OtpProvider } from '../interface.ts';
+import { BaseProvider } from '@nirman/provider-sdk';
+import type { ProviderResult, CredentialField, ProviderAction } from '@nirman/provider-sdk';
 
-export default class TwilioProvider implements OtpProvider {
-  private accountSid: string;
-  private authToken: string;
-  private serviceSid: string;
+export default class TwilioProvider extends BaseProvider {
+  readonly name = 'twilio';
+  readonly category = 'otp' as const;
+  readonly version = '1.0.0';
 
-  constructor(credentials: any, config: any) {
-    this.accountSid = credentials.account_sid;
-    this.authToken = credentials.auth_token;
-    this.serviceSid = config.verify_service_sid || credentials.service_sid;
+  readonly credentialSchema: CredentialField[] = [
+    { key: 'account_sid',  label: 'Account SID',       type: 'string', required: true, placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+    { key: 'auth_token',   label: 'Auth Token',         type: 'secret', required: true },
+    { key: 'service_sid',  label: 'Verify Service SID', type: 'string', required: true, placeholder: 'VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+  ];
 
-    if (!this.accountSid || !this.authToken) {
-      throw new Error("Twilio credentials missing. Requires 'account_sid' and 'auth_token'.");
-    }
-  }
+  readonly actions: ProviderAction[] = [
+    {
+      name: 'send',
+      description: 'Send an OTP via Twilio Verify',
+      params: {
+        phone:   { type: 'string', required: true, description: 'E.164 phone number, e.g. +919876543210' },
+        channel: { type: 'string', required: false, description: "SMS or call", default: 'sms' },
+      },
+    },
+    {
+      name: 'verify',
+      description: 'Verify an OTP code from Twilio Verify',
+      params: {
+        phone: { type: 'string', required: true },
+        code:  { type: 'string', required: true },
+      },
+    },
+  ];
 
-  async sendOtp(phone: string): Promise<any> {
-    const auth = Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64');
-    
-    const params = new URLSearchParams();
-    params.append('To', phone);
-    params.append('Channel', 'sms');
+  protected async handle(
+    action: string,
+    params: Record<string, unknown>,
+    credentials: Record<string, unknown>
+  ): Promise<ProviderResult> {
+    const accountSid = credentials['account_sid'] as string;
+    const authToken  = credentials['auth_token']  as string;
+    const serviceSid = credentials['service_sid'] as string;
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
-    const response = await fetch(
-      `https://verify.twilio.com/v2/Services/${this.serviceSid}/Verifications`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      }
-    );
+    if (action === 'send') {
+      const body = new URLSearchParams();
+      body.append('To', params.phone as string);
+      body.append('Channel', (params.channel as string) || 'sms');
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(`Twilio Verify Error: ${data.message || 'Unknown error'}`);
-    }
+      const resp = await fetch(
+        `https://verify.twilio.com/v2/Services/${serviceSid}/Verifications`,
+        { method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+      );
+      const data = await resp.json() as any;
+      if (!resp.ok) throw new Error(`Twilio: ${data.message}`);
 
-    return { success: true, provider: 'twilio', status: data.status, sid: data.sid };
-  }
-
-  async verifyOtp(phone: string, code: string): Promise<boolean> {
-    const auth = Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64');
-    
-    const params = new URLSearchParams();
-    params.append('To', phone);
-    params.append('Code', code);
-
-    const response = await fetch(
-      `https://verify.twilio.com/v2/Services/${this.serviceSid}/VerificationCheck`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      }
-    );
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(`Twilio Verify Error: ${data.message || 'Unknown error'}`);
+      return { success: true, provider: this.name, action, data: { status: data.status, sid: data.sid } };
     }
 
-    return data.status === 'approved';
+    if (action === 'verify') {
+      const body = new URLSearchParams();
+      body.append('To', params.phone as string);
+      body.append('Code', params.code as string);
+
+      const resp = await fetch(
+        `https://verify.twilio.com/v2/Services/${serviceSid}/VerificationCheck`,
+        { method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+      );
+      const data = await resp.json() as any;
+      if (!resp.ok) throw new Error(`Twilio: ${data.message}`);
+
+      return { success: true, provider: this.name, action, data: { verified: data.status === 'approved', status: data.status } };
+    }
+
+    throw new Error(`Unsupported action: ${action}`);
   }
 }

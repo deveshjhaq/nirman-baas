@@ -1,23 +1,54 @@
-import type { IntegrationProvider } from '../../registry/providers';
+import { BaseProvider } from '@nirman/provider-sdk';
+import type { ProviderResult, CredentialField, ProviderAction } from '@nirman/provider-sdk';
 
-export const APNsProvider: IntegrationProvider = {
-  name: 'apns',
-  category: 'notifications',
+export default class APNsProvider extends BaseProvider {
+  readonly name = 'apns';
+  readonly category = 'notifications' as const;
+  readonly version = '1.0.0';
 
-  async execute(action: string, params: Record<string, any>, credentials: Record<string, any>) {
-    const { team_id, key_id, private_key, bundle_id } = credentials;
-    if (!team_id || !key_id || !private_key) throw new Error('APNs credentials not configured');
+  readonly credentialSchema: CredentialField[] = [
+    { key: 'team_id',     label: 'Apple Team ID',      type: 'string', required: true },
+    { key: 'key_id',      label: 'APNs Key ID',        type: 'string', required: true },
+    { key: 'private_key', label: 'APNs Private Key (.p8)', type: 'secret', required: true },
+    { key: 'bundle_id',   label: 'App Bundle ID',      type: 'string', required: true, placeholder: 'com.yourcompany.app' },
+    { key: 'production',  label: 'Use Production',     type: 'boolean', required: false, default: 'false' },
+  ];
 
+  readonly actions: ProviderAction[] = [
+    {
+      name: 'send',
+      description: 'Send a push notification via Apple APNs',
+      params: {
+        device_token: { type: 'string', required: true,  description: 'APNs device token' },
+        title:        { type: 'string', required: true,  description: 'Notification title' },
+        body:         { type: 'string', required: true,  description: 'Notification body' },
+        badge:        { type: 'number', required: false, description: 'Badge count' },
+        data:         { type: 'object', required: false, description: 'Custom payload data' },
+      },
+    },
+  ];
+
+  protected async handle(
+    action: string,
+    params: Record<string, unknown>,
+    credentials: Record<string, unknown>
+  ): Promise<ProviderResult> {
     if (action === 'send') {
-      // APNs via HTTP/2 — production would use node:http2 or a dedicated APNs library
+      const bundleId = credentials['bundle_id'] as string;
+      /**
+       * Production: Use APNs HTTP/2 API with JWT auth (node:http2 + jsonwebtoken).
+       * The .p8 private key + team_id + key_id are used to sign a short-lived JWT.
+       * Stubbed here — replace with a full APNs HTTP/2 client.
+       */
       return {
         success: true,
-        provider: 'apns',
-        device_token: params.device_token,
-        message: `Push notification queued for ${bundle_id}`,
+        provider: this.name,
+        action,
+        data: { device_token: params.device_token, bundle_id: bundleId },
+        meta: { note: 'Production: implement with node:http2 + JWT signing of .p8 key' },
       };
     }
 
-    throw new Error(`Unknown action: ${action}`);
-  },
-};
+    throw new Error(`Unsupported action: ${action}`);
+  }
+}
