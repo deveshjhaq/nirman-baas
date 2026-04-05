@@ -10,6 +10,7 @@ import notificationRoutes from './integrations/notifications/index.ts';
 import storageRoutes from './integrations/storage/index.ts';
 import paymentRoutes from './integrations/payments/index.ts';
 import aiRoutes from './integrations/ai/index.ts';
+import vaultRoutes from './vault/routes.ts';
 
 const app = new Hono();
 
@@ -33,6 +34,7 @@ internal.route('/notifications', notificationRoutes);
 internal.route('/storage', storageRoutes);
 internal.route('/payments', paymentRoutes);
 internal.route('/ai', aiRoutes);
+internal.route('/vault', vaultRoutes);
 
 // Register internal proxy router
 app.route('/internal', internal);

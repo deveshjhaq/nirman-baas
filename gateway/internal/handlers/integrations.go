@@ -155,8 +155,22 @@ func CreateIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Serialize credentials + config to JSON for storage
-	credsJSON, _ := json.Marshal(req.Credentials)
+	// Send credentials to Hub for encryption and storage
+	err := StoreEncryptedCredentials(
+		r.Context(),
+		projectID,
+		req.ProviderCategory,
+		req.Provider,
+		req.Credentials,
+		req.Config,
+		req.IsDefault,
+	)
+	if err != nil {
+		RespondError(w, http.StatusInternalServerError, "Failed to store encrypted credentials: "+err.Error())
+		return
+	}
+
+	// Store metadata in gateway DB (without credentials)
 	configJSON, _ := json.Marshal(req.Config)
 
 	// If this is set as default, clear existing default for this category first
@@ -169,12 +183,12 @@ func CreateIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var i models.Integration
-	err := database.Pool.QueryRow(r.Context(),
-		`INSERT INTO integrations (project_id, provider, provider_category, credentials, config, is_default, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, 'pending_setup')
+	err = database.Pool.QueryRow(r.Context(),
+		`INSERT INTO integrations (project_id, provider, provider_category, config, is_default, status)
+		 VALUES ($1, $2, $3, $4, $5, 'pending_setup')
 		 RETURNING id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at`,
 		projectID, req.Provider, req.ProviderCategory,
-		string(credsJSON), string(configJSON), req.IsDefault,
+		string(configJSON), req.IsDefault,
 	).Scan(
 		&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
 		&i.Config, &i.Status, &i.IsDefault, &i.LastTestedAt,
@@ -207,7 +221,33 @@ func UpdateIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credsJSON, _ := json.Marshal(req.Credentials)
+	// Fetch existing integration to get provider and category
+	var provider, category string
+	err := database.Pool.QueryRow(r.Context(),
+		`SELECT provider, provider_category FROM integrations WHERE id = $1 AND project_id = $2`,
+		integrationID, projectID,
+	).Scan(&provider, &category)
+	
+	if err != nil {
+		RespondError(w, http.StatusNotFound, "Integration not found")
+		return
+	}
+
+	// Update credentials in Hub's encrypted vault
+	err = UpdateEncryptedCredentials(
+		r.Context(),
+		projectID,
+		category,
+		provider,
+		req.Credentials,
+		req.Config,
+		req.IsDefault,
+	)
+	if err != nil {
+		RespondError(w, http.StatusInternalServerError, "Failed to update encrypted credentials: "+err.Error())
+		return
+	}
+
 	configJSON, _ := json.Marshal(req.Config)
 
 	// Determine target status — default to existing if not provided
@@ -218,29 +258,20 @@ func UpdateIntegration(w http.ResponseWriter, r *http.Request) {
 
 	// Clear existing default for the category if promoting this one
 	if req.IsDefault {
-		// First fetch category for this integration
-		var category string
-		database.Pool.QueryRow(r.Context(),
-			`SELECT provider_category FROM integrations WHERE id = $1 AND project_id = $2`,
-			integrationID, projectID,
-		).Scan(&category)
-
-		if category != "" {
-			database.Pool.Exec(r.Context(),
-				`UPDATE integrations SET is_default = FALSE
-				 WHERE project_id = $1 AND provider_category = $2 AND is_default = TRUE AND id != $3`,
-				projectID, category, integrationID,
-			)
-		}
+		database.Pool.Exec(r.Context(),
+			`UPDATE integrations SET is_default = FALSE
+			 WHERE project_id = $1 AND provider_category = $2 AND is_default = TRUE AND id != $3`,
+			projectID, category, integrationID,
+		)
 	}
 
 	var i models.Integration
-	err := database.Pool.QueryRow(r.Context(),
+	err = database.Pool.QueryRow(r.Context(),
 		`UPDATE integrations
-		 SET credentials = $1, config = $2, is_default = $3, status = $4, updated_at = $5
-		 WHERE id = $6 AND project_id = $7
+		 SET config = $1, is_default = $2, status = $3, updated_at = $4
+		 WHERE id = $5 AND project_id = $6
 		 RETURNING id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at`,
-		string(credsJSON), string(configJSON), req.IsDefault, status, time.Now(),
+		string(configJSON), req.IsDefault, status, time.Now(),
 		integrationID, projectID,
 	).Scan(
 		&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
