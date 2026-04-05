@@ -106,6 +106,7 @@ services:
       - DB_URL=postgres://nirman:nirmanpassword@postgres:5432/nirman_baas?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - PORT=3000
+      - VAULT_ENCRYPTION_KEY=${VAULT_ENCRYPTION_KEY:-change-this-in-production}
     depends_on:
       postgres:
         condition: service_healthy

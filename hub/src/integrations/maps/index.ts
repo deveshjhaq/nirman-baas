@@ -11,8 +11,8 @@ mapsRoutes.get('/geocode', async (c) => {
   if (!address) return c.json({ error: 'address query param required' }, 400);
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'maps');
-    const result = await adapter.geocode(address);
+    const { provider, credentials } = await getProviderAdapter(projectId, 'maps');
+    const result = await provider.execute('geocode', { address }, credentials);
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

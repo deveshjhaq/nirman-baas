@@ -15,8 +15,8 @@ emailRoutes.post('/send', async (c) => {
   }
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'email');
-    const result = await adapter.sendEmail(body.to, body.subject, body.html, body.text);
+    const { provider, credentials } = await getProviderAdapter(projectId, 'email');
+    const result = await provider.execute('send', body, credentials);
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

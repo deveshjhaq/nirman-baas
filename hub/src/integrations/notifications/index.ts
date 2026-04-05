@@ -13,8 +13,8 @@ notificationRoutes.post('/send', async (c) => {
   }
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'notifications');
-    const result = await adapter.sendPush(body.token, body.title, body.bodyText, body.data);
+    const { provider, credentials } = await getProviderAdapter(projectId, 'notifications');
+    const result = await provider.execute('send', body, credentials);
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

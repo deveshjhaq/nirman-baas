@@ -13,9 +13,9 @@ storageRoutes.post('/presign', async (c) => {
   }
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'storage');
-    const url = await adapter.getPresignedUrl(body.fileName, body.contentType);
-    return c.json({ url });
+    const { provider, credentials } = await getProviderAdapter(projectId, 'storage');
+    const result = await provider.execute('presign', body, credentials);
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

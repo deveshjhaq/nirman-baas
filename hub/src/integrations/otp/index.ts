@@ -14,8 +14,8 @@ otpRoutes.post('/send', async (c) => {
   }
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'otp');
-    const result = await adapter.sendOtp(body.phone, body.otp_length || 6);
+    const { provider, credentials } = await getProviderAdapter(projectId, 'otp');
+    const result = await provider.execute('send', body, credentials);
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -33,9 +33,9 @@ otpRoutes.post('/verify', async (c) => {
   }
 
   try {
-    const adapter: any = await getProviderAdapter(projectId, 'otp');
-    const isValid = await adapter.verifyOtp(body.phone, body.code);
-    return c.json({ verified: isValid });
+    const { provider, credentials } = await getProviderAdapter(projectId, 'otp');
+    const result = await provider.execute('verify', body, credentials);
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

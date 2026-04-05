@@ -54,10 +54,23 @@ func New() http.Handler {
 
 		r.Route("/projects", func(r chi.Router) {
 			r.Get("/{id}", handlers.GetProject)
-			
+
 			r.Route("/{id}/db", func(r chi.Router) {
 				r.Post("/", handlers.SetupCollectionsDB)
 				r.Delete("/", handlers.DropCollectionsDB)
+			})
+
+			// Integration CRUD — POST/GET/PUT/DELETE /projects/{id}/integrations
+			r.Route("/{id}/integrations", func(r chi.Router) {
+				r.Get("/", handlers.ListIntegrations)
+				r.Post("/", handlers.CreateIntegration)
+
+				r.Route("/{integrationId}", func(r chi.Router) {
+					r.Get("/", handlers.GetIntegration)
+					r.Put("/", handlers.UpdateIntegration)
+					r.Delete("/", handlers.DeleteIntegration)
+					r.Post("/test", handlers.TestIntegration)
+				})
 			})
 		})
 	})

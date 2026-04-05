@@ -69,13 +69,13 @@ export async function loadProvider(providerName: string): Promise<NirmanProvider
 
 /**
  * Resolve credentials + provider for a given project and category,
- * then return a ready-to-use NirmanProvider instance.
+ * then return both provider instance and credentials.
  */
 export async function getProviderAdapter(
   projectId: string,
   category: ProviderCategory,
   forceProvider?: string
-): Promise<NirmanProvider> {
+): Promise<{ provider: NirmanProvider; credentials: any }> {
   const { providerName, credentials } = await getProviderCredentials(
     projectId,
     category,
@@ -87,7 +87,7 @@ export async function getProviderAdapter(
   // Validate credentials eagerly so errors surface immediately
   await provider.validateCredentials(credentials);
 
-  return provider;
+  return { provider, credentials };
 }
 
 /**

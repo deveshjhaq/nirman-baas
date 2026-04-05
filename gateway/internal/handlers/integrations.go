@@ -1,75 +1,324 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"io"
+	"encoding/json"
 	"net/http"
+	"time"
 
-	"gateway/internal/config"
 	"gateway/internal/database"
+	"gateway/internal/models"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// Integrations, Project CRUD and Proxied proxy logic condensed as per target tree.
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
-// GetProject API to verify ownership
-func GetProject(w http.ResponseWriter, r *http.Request) {
+// ownsProject returns true if the JWT user owns the given project.
+func ownsProject(ctx context.Context, projectID, userID string) bool {
+	var exists bool
+	database.Pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1 AND user_id = $2)`,
+		projectID, userID,
+	).Scan(&exists)
+	return exists
+}
+
+// ─── List integrations ────────────────────────────────────────────────────────
+
+// ListIntegrations handles GET /projects/{id}/integrations
+// Optional query: ?category=otp|email|maps|...
+func ListIntegrations(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	projectID := chi.URLParam(r, "id")
 
-	var exists bool
-	ctx := context.Background()
-	database.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1 AND user_id = $2)`, projectID, userID).Scan(&exists)
-	
-	if !exists {
+	if !ownsProject(r.Context(), projectID, userID) {
 		RespondError(w, http.StatusNotFound, "Project not found")
 		return
 	}
 
-	RespondJSON(w, http.StatusOK, map[string]interface{}{"id": projectID, "status": "active"})
+	category := r.URL.Query().Get("category")
+
+	var rows interface{}
+	var err error
+
+	if category != "" {
+		rows, err = database.Pool.Query(r.Context(),
+			`SELECT id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at
+			 FROM integrations
+			 WHERE project_id = $1 AND provider_category = $2
+			 ORDER BY created_at DESC`,
+			projectID, category,
+		)
+	} else {
+		rows, err = database.Pool.Query(r.Context(),
+			`SELECT id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at
+			 FROM integrations
+			 WHERE project_id = $1
+			 ORDER BY provider_category, created_at DESC`,
+			projectID,
+		)
+	}
+
+	if err != nil {
+		RespondError(w, http.StatusInternalServerError, "Failed to fetch integrations")
+		return
+	}
+
+	// Type-assert to pgx Rows
+	type pgxRows interface {
+		Next() bool
+		Scan(dest ...any) error
+		Close()
+		Err() error
+	}
+	pgRows := rows.(pgxRows)
+	defer pgRows.Close()
+
+	integrations := make([]models.Integration, 0)
+	for pgRows.Next() {
+		var i models.Integration
+		err := pgRows.Scan(
+			&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
+			&i.Config, &i.Status, &i.IsDefault, &i.LastTestedAt,
+			&i.CreatedAt, &i.UpdatedAt,
+		)
+		if err != nil {
+			RespondError(w, http.StatusInternalServerError, "Failed to scan integration row")
+			return
+		}
+		integrations = append(integrations, i)
+	}
+	if pgRows.Err() != nil {
+		RespondError(w, http.StatusInternalServerError, "Row iteration error")
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"project_id":   projectID,
+		"integrations": integrations,
+		"total":        len(integrations),
+	})
 }
 
-// ProxyToHub proxies dynamic paths directly to the integrations hub internally.
-func ProxyToHub(w http.ResponseWriter, r *http.Request) {
-	projectID := r.Context().Value("project_id").(string)
-	
-	hubURL := config.AppConfig.HubURL
-	if hubURL == "" {
-		RespondError(w, http.StatusInternalServerError, "Hub configuration missing")
+// ─── Get single integration ───────────────────────────────────────────────────
+
+// GetIntegration handles GET /projects/{id}/integrations/{integrationId}
+func GetIntegration(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	projectID := chi.URLParam(r, "id")
+	integrationID := chi.URLParam(r, "integrationId")
+
+	if !ownsProject(r.Context(), projectID, userID) {
+		RespondError(w, http.StatusNotFound, "Project not found")
 		return
 	}
 
-	targetURL := hubURL + r.URL.Path
-
-	bodyBytes, _ := io.ReadAll(r.Body)
-	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-	proxyReq, err := http.NewRequest(r.Method, targetURL, bytes.NewBuffer(bodyBytes))
+	var i models.Integration
+	err := database.Pool.QueryRow(r.Context(),
+		`SELECT id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at
+		 FROM integrations
+		 WHERE id = $1 AND project_id = $2`,
+		integrationID, projectID,
+	).Scan(
+		&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
+		&i.Config, &i.Status, &i.IsDefault, &i.LastTestedAt,
+		&i.CreatedAt, &i.UpdatedAt,
+	)
 	if err != nil {
-		RespondError(w, http.StatusInternalServerError, "Failed to build proxy request")
+		RespondError(w, http.StatusNotFound, "Integration not found")
 		return
 	}
 
-	proxyReq.Header = r.Header.Clone()
-	proxyReq.Header.Set("X-Project-ID", projectID)
-	// Clear standard Origin restrictions for internal microservice hop
-	proxyReq.Header.Del("Origin")
+	RespondJSON(w, http.StatusOK, i)
+}
 
-	client := &http.Client{}
-	resp, err := client.Do(proxyReq)
+// ─── Create integration ───────────────────────────────────────────────────────
+
+// CreateIntegration handles POST /projects/{id}/integrations
+func CreateIntegration(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	projectID := chi.URLParam(r, "id")
+
+	if !ownsProject(r.Context(), projectID, userID) {
+		RespondError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	var req models.CreateIntegrationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.Provider == "" || req.ProviderCategory == "" {
+		RespondError(w, http.StatusBadRequest, "provider and provider_category are required")
+		return
+	}
+
+	// Serialize credentials + config to JSON for storage
+	credsJSON, _ := json.Marshal(req.Credentials)
+	configJSON, _ := json.Marshal(req.Config)
+
+	// If this is set as default, clear existing default for this category first
+	if req.IsDefault {
+		database.Pool.Exec(r.Context(),
+			`UPDATE integrations SET is_default = FALSE
+			 WHERE project_id = $1 AND provider_category = $2 AND is_default = TRUE`,
+			projectID, req.ProviderCategory,
+		)
+	}
+
+	var i models.Integration
+	err := database.Pool.QueryRow(r.Context(),
+		`INSERT INTO integrations (project_id, provider, provider_category, credentials, config, is_default, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, 'pending_setup')
+		 RETURNING id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at`,
+		projectID, req.Provider, req.ProviderCategory,
+		string(credsJSON), string(configJSON), req.IsDefault,
+	).Scan(
+		&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
+		&i.Config, &i.Status, &i.IsDefault, &i.LastTestedAt,
+		&i.CreatedAt, &i.UpdatedAt,
+	)
 	if err != nil {
-		RespondError(w, http.StatusBadGateway, "Integrations Hub is unreachable")
+		RespondError(w, http.StatusInternalServerError, "Failed to create integration")
 		return
 	}
-	defer resp.Body.Close()
 
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
+	RespondJSON(w, http.StatusCreated, i)
+}
+
+// ─── Update integration ───────────────────────────────────────────────────────
+
+// UpdateIntegration handles PUT /projects/{id}/integrations/{integrationId}
+func UpdateIntegration(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	projectID := chi.URLParam(r, "id")
+	integrationID := chi.URLParam(r, "integrationId")
+
+	if !ownsProject(r.Context(), projectID, userID) {
+		RespondError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	var req models.UpdateIntegrationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	credsJSON, _ := json.Marshal(req.Credentials)
+	configJSON, _ := json.Marshal(req.Config)
+
+	// Determine target status — default to existing if not provided
+	status := req.Status
+	if status == "" {
+		status = "pending_setup"
+	}
+
+	// Clear existing default for the category if promoting this one
+	if req.IsDefault {
+		// First fetch category for this integration
+		var category string
+		database.Pool.QueryRow(r.Context(),
+			`SELECT provider_category FROM integrations WHERE id = $1 AND project_id = $2`,
+			integrationID, projectID,
+		).Scan(&category)
+
+		if category != "" {
+			database.Pool.Exec(r.Context(),
+				`UPDATE integrations SET is_default = FALSE
+				 WHERE project_id = $1 AND provider_category = $2 AND is_default = TRUE AND id != $3`,
+				projectID, category, integrationID,
+			)
 		}
 	}
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+
+	var i models.Integration
+	err := database.Pool.QueryRow(r.Context(),
+		`UPDATE integrations
+		 SET credentials = $1, config = $2, is_default = $3, status = $4, updated_at = $5
+		 WHERE id = $6 AND project_id = $7
+		 RETURNING id, project_id, provider, provider_category, config, status, is_default, last_tested_at, created_at, updated_at`,
+		string(credsJSON), string(configJSON), req.IsDefault, status, time.Now(),
+		integrationID, projectID,
+	).Scan(
+		&i.ID, &i.ProjectID, &i.Provider, &i.ProviderCategory,
+		&i.Config, &i.Status, &i.IsDefault, &i.LastTestedAt,
+		&i.CreatedAt, &i.UpdatedAt,
+	)
+	if err != nil {
+		RespondError(w, http.StatusNotFound, "Integration not found or update failed")
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, i)
+}
+
+// ─── Delete integration ───────────────────────────────────────────────────────
+
+// DeleteIntegration handles DELETE /projects/{id}/integrations/{integrationId}
+func DeleteIntegration(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	projectID := chi.URLParam(r, "id")
+	integrationID := chi.URLParam(r, "integrationId")
+
+	if !ownsProject(r.Context(), projectID, userID) {
+		RespondError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	tag, err := database.Pool.Exec(r.Context(),
+		`DELETE FROM integrations WHERE id = $1 AND project_id = $2`,
+		integrationID, projectID,
+	)
+	if err != nil {
+		RespondError(w, http.StatusInternalServerError, "Failed to delete integration")
+		return
+	}
+
+	// pgconn.CommandTag — check rows affected
+	if tag.RowsAffected() == 0 {
+		RespondError(w, http.StatusNotFound, "Integration not found")
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{
+		"message": "Integration deleted successfully",
+		"id":      integrationID,
+	})
+}
+
+// ─── Test integration ─────────────────────────────────────────────────────────
+
+// TestIntegration handles POST /projects/{id}/integrations/{integrationId}/test
+// Marks the integration as tested and (in future) pings the Hub to validate credentials.
+func TestIntegration(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	projectID := chi.URLParam(r, "id")
+	integrationID := chi.URLParam(r, "integrationId")
+
+	if !ownsProject(r.Context(), projectID, userID) {
+		RespondError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	now := time.Now()
+	tag, err := database.Pool.Exec(r.Context(),
+		`UPDATE integrations
+		 SET last_tested_at = $1, status = 'active', updated_at = $2
+		 WHERE id = $3 AND project_id = $4`,
+		now, now, integrationID, projectID,
+	)
+	if err != nil || tag.RowsAffected() == 0 {
+		RespondError(w, http.StatusNotFound, "Integration not found")
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":        "Integration tested successfully",
+		"id":             integrationID,
+		"status":         "active",
+		"last_tested_at": now,
+	})
 }

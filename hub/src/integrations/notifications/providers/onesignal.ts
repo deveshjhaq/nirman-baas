@@ -38,7 +38,7 @@ export default class OneSignalProvider extends BaseProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Basic ${restApiKey}` },
         body: JSON.stringify({
-          app_id,
+          app_id: appId,
           include_player_ids:        params.player_ids || [],
           include_external_user_ids: params.external_user_ids || [],
           headings:  { en: params.title || 'Notification' },
